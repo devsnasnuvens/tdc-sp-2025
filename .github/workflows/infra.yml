@@ -17,7 +17,6 @@ jobs:
   terraform-plan-dev:
     name: Terraform Plan - Dev
     runs-on: ubuntu-latest
-    environment: dev
     defaults:
       run:
         working-directory: ./iac
