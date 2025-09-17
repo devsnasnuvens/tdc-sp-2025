@@ -73,7 +73,6 @@ jobs:
   terraform-plan-qa:
     name: Terraform Plan - QA
     runs-on: ubuntu-latest
-    environment: qa
     defaults:
       run:
         working-directory: ./iac
@@ -131,7 +130,6 @@ jobs:
   terraform-plan-prod:
     name: Terraform Plan - Prod
     runs-on: ubuntu-latest
-    environment: prod
     defaults:
       run:
         working-directory: ./iac
