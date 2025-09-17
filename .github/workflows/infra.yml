@@ -1,0 +1,188 @@
+name: Terraform Deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  ARM_CLIENT_ID: ${{ secrets.ARM_CLIENT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID: ${{ secrets.ARM_TENANT_ID }}
+  ARM_USE_AZURE_AD: true
+
+jobs:
+  terraform-plan-dev:
+    name: Terraform Plan - Dev
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: ./iac
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.2"
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=dev.tfstate"
+
+      - name: Terraform Plan
+        run: terraform plan -var="environment=dev" -var="application_name=tdc" -var="location=eastus2" -out=dev.tfplan
+
+      - name: Upload tfplan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dev
+          path: ./iac/dev.tfplan
+
+  terraform-apply-dev:
+    name: Terraform Apply - Dev
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: ./iac
+    needs: terraform-plan-dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.2"
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=dev.tfstate"
+
+      - name: Download tfplan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: dev
+          path: ./iac
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve dev.tfplan
+
+  terraform-plan-qa:
+    name: Terraform Plan - QA
+    runs-on: ubuntu-latest
+    environment: qa
+    defaults:
+      run:
+        working-directory: ./iac
+    needs: terraform-apply-dev
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.2"
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=qa.tfstate"
+
+      - name: Terraform Plan
+        run: terraform plan -var="environment=qa" -var="application_name=tdc" -var="location=brazilsouth" -out=qa.tfplan
+
+      - name: Upload tfplan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa
+          path: ./iac/qa.tfplan
+
+  terraform-apply-qa:
+    name: Terraform Apply - QA
+    runs-on: ubuntu-latest
+    environment: qa
+    defaults:
+      run:
+        working-directory: ./iac
+    needs: terraform-plan-qa
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.2"
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=qa.tfstate"
+
+      - name: Download tfplan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: qa
+          path: ./iac
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve qa.tfplan
+
+  terraform-plan-prod:
+    name: Terraform Plan - Prod
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: ./iac
+    needs: terraform-apply-qa
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.2"
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=prod.tfstate"
+
+      - name: Terraform Plan
+        run: terraform plan -var="environment=prod" -var="application_name=tdc" -var="location=centralus" -var="app_service_plan_sku=P0v4" -out=prod.tfplan
+
+      - name: Upload tfplan artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: prod
+          path: ./iac/prod.tfplan
+
+  terraform-apply-prod:
+    name: Terraform Apply - Prod
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: ./iac
+    needs: terraform-plan-prod
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.13.2"
+
+      - name: Terraform Init
+        run: terraform init -backend-config="key=prod.tfstate"
+
+      - name: Download tfplan artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: prod
+          path: ./iac
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve prod.tfplan
